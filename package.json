@@ -1,0 +1,32 @@
+{
+  "name": "AccountingDocument",
+  "version": "1.0.0",
+  "description": "A simple CAP project.",
+  "repository": "<Add your repository here>",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@cap-js/postgres": "^1.10.0",
+    "@sap-cloud-sdk/resilience": "^3.18.0",
+    "@sap/cds": "^7",
+    "@sap/cds-dk": "^8.1.1",
+    "express": "^4",
+    "pg": "^8.12.0"
+  },
+  "devDependencies": {
+    "@cap-js/sqlite": "^1",
+    "@sap/eslint-plugin-cds": "^3",
+    "eslint": "^9"
+  },
+  "scripts": {
+    "start": "cds-serve"
+  },
+  "cds": {
+    "requires": {
+      "API_PRODUCT_SRV": {
+        "kind": "odata-v2",
+        "model": "srv/external/API_PRODUCT_SRV"
+      }
+    }
+  }
+}
