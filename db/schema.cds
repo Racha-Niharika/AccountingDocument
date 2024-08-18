@@ -1,54 +1,36 @@
 namespace com.satinfotech.cloudapps;
-using {cuid} from '@sap/cds/common';
+using {managed,cuid} from '@sap/cds/common';
 
-entity Accounting: cuid{
-    
+entity Accounting : cuid,managed{
+    key ID:UUID;
     @title: 'CompanyCode'
     
-    key CompanyCode: String(20);
+    CompanyCode: String(20);
     @title: 'FiscalYear'
    
     FiscalYear: String(4);
     @title: 'FiscalPeriod'
    
     FiscalPeriod: String(3);
-    @title: 'PostingDate'
-   PostingDate: String(10);
+        
     @title: 'AccountingDocument'
     AccountingDocument: String(15);
+   
+    
     @title: 'AccountingDocumentType'
     AccountingDocumentType: String(15);
-    @title: 'DocumentReferenceID'
-    DocumentReferenceID: String(15);
-    @title: 'Customer GSTN'
-    CustomerGSTN: String(10);
-    @title: 'SupplierGSTN'
-    SupplierGSTN: String(10);
-    Items : Composition of many Items on Items.id=$self;
-}
-entity Items : cuid {
-     key ID : UUID;
-     id:Association to Accounting;
-    @title: 'lineno'
-    lineno: String(50);
-    @title: 'AccountingDocument'
-    AccountingDocument: String(50);
-    @title: 'HSN'
-    HSN: String(50);
-     @title: 'GLAccount'
-   GLAccount: String(50);
-   @title: 'DocumentText'
-   DocumentText: String(50);
-   @title: 'GSTkey'
-   GSTkey: String(50);
-   @title: 'POS'
-   POS: String(50);
-   @title: 'TaxCode'
-   TaxCode: String(50);
-   @title: 'TaxItemAccDoc'
-   TaxItemAccDoc: String(50);
-   @title: 'GLAccount'
-   AccountingDocumentID: String(50);
+     Items :Composition of  many Items on Items.AccountingDocument=$self.AccountingDocument and Items.CompanyCode = $self.CompanyCode 
+                                            and Items.FiscalYear = $self.FiscalYear;
    
-
+}
+entity Items : cuid,managed {
+    key ID:UUID;
+    CompanyCode : String(4);
+    FiscalYear:String(4);
+    AccountingDocument:String(10);
+    AccountingDocumentItem : String(10);
+   TaxCode:String(2);
+   GLAccount:String(10);
+   TransactionTypeDetermination:String(3);
+   
 }

@@ -7,11 +7,13 @@
   "private": true,
   "dependencies": {
     "@cap-js/postgres": "^1.10.0",
+    "@sap-cloud-sdk/http-client": "^3.18.0",
     "@sap-cloud-sdk/resilience": "^3.18.0",
     "@sap/cds": "^7",
     "@sap/cds-dk": "^8.1.1",
     "express": "^4",
-    "pg": "^8.12.0"
+    "pg": "^8.12.0",
+    "uuid": "^10.0.0"
   },
   "devDependencies": {
     "@cap-js/sqlite": "^1",
@@ -22,10 +24,28 @@
     "start": "cds-serve"
   },
   "cds": {
+    "fiori": {
+      "lean_draft": true,
+      "bypass_draft": true
+    },
     "requires": {
-      "API_PRODUCT_SRV": {
+      "db": {
+        "imp": "@cap-js/postgres",
+        "pool": {
+          "max": 20
+        }
+      },
+      "API_OPLACCTGDOCITEMCUBE_SRV": {
         "kind": "odata-v2",
-        "model": "srv/external/API_PRODUCT_SRV"
+        "model": "srv/external/API_OPLACCTGDOCITEMCUBE_SRV",
+        "csrf": true,
+        "csrfInBatch": true,
+        "[production]": {
+          "credentials": {
+            "destination": "S4HANA",
+            "path": "/sap/opu/odata/sap/API_OPLACCTGDOCITEMCUBE_SRV"
+          }
+        }
       }
     }
   }
