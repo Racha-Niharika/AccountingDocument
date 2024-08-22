@@ -1,8 +1,9 @@
 using {com.satinfotech.cloudapps as db} from '../db/schema';
 using {API_OPLACCTGDOCITEMCUBE_SRV as accountapi} from './external/API_OPLACCTGDOCITEMCUBE_SRV';
 service accountsrv{  
-    entity Accounting as projection on db.Accounting;
+    //entity Accounting as projection on db.Accounting;
       entity Items as projection on db.Items;
+       //action syncAccountingData(); 
 entity Accounts as projection on accountapi.A_OperationalAcctgDocItemCube{
         CompanyCode,
         FiscalYear,
@@ -13,10 +14,13 @@ entity Accounts as projection on accountapi.A_OperationalAcctgDocItemCube{
         TaxCode,
         GLAccount,
         TransactionTypeDetermination,
-        CompanyCodeCurrency
-    
+        CompanyCodeCurrency,
+         LastChangeDate
   }
-   
+   entity Accounting as projection on db.Accounting actions{
+            action loaddata() returns Boolean;
+    };
+   //action ListReporter() returns String;
 }
 //annotate accountsrv.Accounting @odata.draft.enabled;
 annotate accountsrv.Items @odata.draft.enabled;
@@ -43,9 +47,13 @@ annotate accountsrv.Accounting with @(
             Label: 'Document Type',
             Value: AccountingDocumentType
         },
-
-        
+{
+            Label: 'LastChangeDate',
+            Value: LastChangeDate
+        },
+         
     ],
+     UI.SelectionFields: [ AccountingDocument , CompanyCode, FiscalYear],    
     UI.FieldGroup #account: {
         $Type: 'UI.FieldGroupType',
         Data: [
@@ -69,7 +77,10 @@ annotate accountsrv.Accounting with @(
             Label: 'AccountingDocumentType',
             Value: AccountingDocumentType
         }
-       
+       ,{
+            Label: 'LastChangeDate',
+            Value: LastChangeDate
+        }
         
 
         ]

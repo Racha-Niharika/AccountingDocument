@@ -1,0 +1,174 @@
+{
+  "_version": "1.59.0",
+  "sap.app": {
+    "id": "account",
+    "type": "application",
+    "i18n": "i18n/i18n.properties",
+    "applicationVersion": {
+      "version": "0.0.1"
+    },
+    "title": "{{appTitle}}",
+    "description": "{{appDescription}}",
+    "resources": "resources.json",
+    "sourceTemplate": {
+      "id": "@sap/generator-fiori:lrop",
+      "version": "1.14.2",
+      "toolsId": "204da42f-ef32-4632-ac7b-43b931f70369"
+    },
+    "dataSources": {
+      "mainService": {
+        "uri": "/odata/v4/accountsrv/",
+        "type": "OData",
+        "settings": {
+          "annotations": [],
+          "odataVersion": "4.0"
+        }
+      }
+    }
+  },
+  "sap.ui": {
+    "technology": "UI5",
+    "icons": {
+      "icon": "",
+      "favIcon": "",
+      "phone": "",
+      "phone@2": "",
+      "tablet": "",
+      "tablet@2": ""
+    },
+    "deviceTypes": {
+      "desktop": true,
+      "tablet": true,
+      "phone": true
+    }
+  },
+  "sap.ui5": {
+    "flexEnabled": true,
+    "dependencies": {
+      "minUI5Version": "1.127.0",
+      "libs": {
+        "sap.m": {},
+        "sap.ui.core": {},
+        "sap.ushell": {},
+        "sap.fe.templates": {}
+      }
+    },
+    "contentDensities": {
+      "compact": true,
+      "cozy": true
+    },
+    "models": {
+      "i18n": {
+        "type": "sap.ui.model.resource.ResourceModel",
+        "settings": {
+          "bundleName": "account.i18n.i18n"
+        }
+      },
+      "": {
+        "dataSource": "mainService",
+        "preload": true,
+        "settings": {
+          "operationMode": "Server",
+          "autoExpandSelect": true,
+          "earlyRequests": true
+        }
+      },
+      "@i18n": {
+        "type": "sap.ui.model.resource.ResourceModel",
+        "uri": "i18n/i18n.properties"
+      }
+    },
+    "resources": {
+      "css": []
+    },
+    "routing": {
+      "config": {},
+      "routes": [
+        {
+          "pattern": ":?query:",
+          "name": "AccountingList",
+          "target": "AccountingList"
+        },
+        {
+          "pattern": "Accounting({key}):?query:",
+          "name": "AccountingObjectPage",
+          "target": "AccountingObjectPage"
+        },
+        {
+          "pattern": "Accounting({key})/Items({key2}):?query:",
+          "name": "ItemsObjectPage",
+          "target": "ItemsObjectPage"
+        }
+      ],
+      "targets": {
+        "AccountingList": {
+          "type": "Component",
+          "id": "AccountingList",
+          "name": "sap.fe.templates.ListReport",
+          "options": {
+            "settings": {
+              "contextPath": "/Accounting",
+              "variantManagement": "Page",
+              "navigation": {
+                "Accounting": {
+                  "detail": {
+                    "route": "AccountingObjectPage"
+                  }
+                }
+              },
+              "controlConfiguration": {
+                "@com.sap.vocabularies.UI.v1.LineItem": {
+                  "tableSettings": {
+                    "type": "ResponsiveTable"
+                  },
+                  "actions": {
+                    "accounting": {
+                      "press": "account.ext.accounting.accounting.accounting",
+                      "visible": true,
+                      "enabled": true,
+                      "requiresSelection": false,
+                      "text": "accounting-document"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "AccountingObjectPage": {
+          "type": "Component",
+          "id": "AccountingObjectPage",
+          "name": "sap.fe.templates.ObjectPage",
+          "options": {
+            "settings": {
+              "editableHeaderContent": false,
+              "contextPath": "/Accounting",
+              "navigation": {
+                "Items": {
+                  "detail": {
+                    "route": "ItemsObjectPage"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "ItemsObjectPage": {
+          "type": "Component",
+          "id": "ItemsObjectPage",
+          "name": "sap.fe.templates.ObjectPage",
+          "options": {
+            "settings": {
+              "editableHeaderContent": false,
+              "contextPath": "/Accounting/Items"
+            }
+          }
+        }
+      }
+    }
+  },
+  "sap.fiori": {
+    "registrationIds": [],
+    "archeType": "transactional"
+  }
+}

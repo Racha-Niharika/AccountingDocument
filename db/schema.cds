@@ -11,12 +11,12 @@ entity Accounting : cuid,managed{
     FiscalYear: String(4);
     @title: 'FiscalPeriod'
    
-    FiscalPeriod: String(3);
+    FiscalPeriod: String(10);
         
     @title: 'AccountingDocument'
     AccountingDocument: String(15);
-   
-    
+    @title: ' LastChangeDate'
+    LastChangeDate:Date;
     @title: 'AccountingDocumentType'
     AccountingDocumentType: String(15);
      Items :Composition of  many Items on Items.AccountingDocument=$self.AccountingDocument and Items.CompanyCode = $self.CompanyCode 
@@ -32,5 +32,5 @@ entity Items : cuid,managed {
    TaxCode:String(2);
    GLAccount:String(10);
    TransactionTypeDetermination:String(3);
-   
+ 
 }

@@ -1,4 +1,57 @@
+
 const cds = require('@sap/cds');
+const { v4: uuidv4 } = require('uuid'); // Import UUID library
+
+module.exports = cds.service.impl(async function() {
+    const accountingapi = await cds.connect.to('API_OPLACCTGDOCITEMCUBE_SRV');
+    const { Accounting, Accounts, Items } = this.entities; // Only use local entities
+
+   
+
+    this.on('loaddata', async (req) => {
+        try {
+            console.log("Button clicked");
+            // Add your data processing logic here
+            // Example: const result = await someFunction();
+            return true; // Return appropriate result
+        } catch (error) {
+            console.error("Error in loaddata action:", error);
+            return false; // Indicate failure
+        }
+    });
+    
+   
+    
+    
+    
+    
+    
+    
+});
+
+
+
+/**let lastsyncdate1 = await cds.run(SELECT.one.columns('JournalEntryLastChangeDateTime').from(LGSTTaxItem).orderBy('JournalEntryLastChangeDateTime desc'));
+        if(lastsyncdate1){
+            let taxlastsyncdatetime=lastsyncdate1.JournalEntryLastChangeDateTime;
+            counttaxdocs = await gsttaxapi.send({method:'GET', path: "YY1_GSTAcctgTaxItm/$count?$filter=JournalEntryLastChangeDateTime gt datetimeoffset'"+taxlastsyncdatetime+"'"})    
+        }else{
+            counttaxdocs = await gsttaxapi.send({method:'GET', path: "YY1_GSTAcctgTaxItm/$count"})    
+            taxdocqry = SELECT.from(GSTTaxItem);
+        
+        }
+            
+taxdocitems = []
+        for(i=0;i<counttaxdocs;i=i+5000){
+            taxdocqry = taxdocqry.limit(5000,i);
+            let results = await gsttaxapi.run(taxdocqry);
+            console.log("In Batch ",i," of ",counttaxdocs, " records");
+            await cds.run(UPSERT.into(LGSTTaxItem).entries(results));
+            //taxdocitems.push(...results);
+        }
+            
+*/
+/*const cds = require('@sap/cds');
 const { v4: uuidv4 } = require('uuid'); // Import UUID library
 module.exports = cds.service.impl(async function() {
     const accountingapi = await cds.connect.to('API_OPLACCTGDOCITEMCUBE_SRV');
@@ -119,3 +172,4 @@ module.exports = cds.service.impl(async function() {
         
         
 });
+*/

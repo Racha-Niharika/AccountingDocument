@@ -21,7 +21,8 @@
     "eslint": "^9"
   },
   "scripts": {
-    "start": "cds-serve"
+    "start": "cds-serve",
+    "watch-account": "cds watch --open account/webapp/index.html?sap-ui-xx-viewCache=false"
   },
   "cds": {
     "fiori": {
@@ -48,5 +49,8 @@
         }
       }
     }
-  }
+  },
+  "sapux": [
+    "app/account"
+  ]
 }
