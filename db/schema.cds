@@ -15,8 +15,9 @@ entity Accounting : cuid,managed{
         
     @title: 'AccountingDocument'
     AccountingDocument: String(15);
+
     @title: ' LastChangeDate'
-    LastChangeDate:Date;
+    LastChangeDate:DateTime;
     @title: 'AccountingDocumentType'
     AccountingDocumentType: String(15);
      Items :Composition of  many Items on Items.AccountingDocument=$self.AccountingDocument and Items.CompanyCode = $self.CompanyCode 

@@ -20,6 +20,7 @@ entity Accounts as projection on accountapi.A_OperationalAcctgDocItemCube{
    entity Accounting as projection on db.Accounting;
    action insertBatchData(data: array of accountsrv.Accounting);
    action accounting() returns String;
+    action insertRecords(records: many Accounting); 
 }
 //annotate accountsrv.Accounting @odata.draft.enabled;
 annotate accountsrv.Items @odata.draft.enabled;

@@ -1,4 +1,97 @@
 const cds = require('@sap/cds');
+
+module.exports = cds.service.impl(async function () {
+    
+    const { Accounting } = this.entities;
+
+    this.on('insertRecords', async (req) => {
+        try {
+            const { records } = req.data;
+
+            if (!records || records.length === 0) {
+                return { message: 'No records to insert' };
+            }
+
+            // Insert records into the Accounting table in batches
+            const BATCH_SIZE = 1000;
+            for (let i = 0; i < records.length; i += BATCH_SIZE) {
+                const batch = records.slice(i, i + BATCH_SIZE);
+                await cds.transaction(req).run(INSERT.into(Accounting).entries(batch));
+            }
+
+            return { message: `${records.length} records inserted successfully` };
+        } catch (error) {
+            console.error('Error inserting records:', error);
+            req.error(500, 'Failed to insert records');
+        }
+    });
+
+    // Other actions and handlers...
+});
+
+/*const cds = require('@sap/cds');
+const { v4: uuidv4 } = require('uuid');
+
+// Define the service implementation
+module.exports = cds.service.impl(async function() {
+    const { Accounting } = this.entities;
+
+    // Define the 'accounting' action handler
+    this.on('accounting', async (req) => {
+        const records = req.data.records;
+
+        if (!records || !Array.isArray(records)) {
+            throw new Error('Invalid input. Expected an array of records.');
+        }
+
+        const tx = this.transaction(); // Use this.transaction() to get a transaction context
+
+        try {
+            // Insert records in batches
+            const batchSize = 2000;
+            for (let i = 0; i < records.length; i += batchSize) {
+                const batch = records.slice(i, i + batchSize);
+
+                const insertPromises = batch.map(record => {
+                    const id = uuidv4(); // Generate unique ID for each record
+                    return tx.run(
+                        `INSERT INTO Accounting (ID, CompanyCode, FiscalYear, FiscalPeriod, AccountingDocument, LastChangeDate, AccountingDocumentType)
+                        VALUES (
+                            $1, $2, $3, $4, $5, $6, $7
+                        )`,
+                        [
+                            id,
+                            record.CompanyCode,
+                            record.FiscalYear,
+                            record.FiscalPeriod,
+                            record.AccountingDocument,
+                            record.LastChangeDate,
+                            record.AccountingDocumentType
+                        ]
+                    );
+                });
+
+                await Promise.all(insertPromises);
+                console.log(`Processed batch of ${batch.length} records.`);
+            }
+
+            await tx.commit(); // Commit the transaction
+            return { message: 'Records inserted successfully.' };
+
+        } catch (error) {
+            await tx.rollback(); // Rollback the transaction in case of an error
+            console.error('Error inserting records:', error);
+            throw new Error('An error occurred while inserting records.');
+        }
+    });
+});
+*/
+
+
+
+
+/*
+const cds = require('@sap/cds');
 const { v4: uuidv4 } = require('uuid');
 
 module.exports = cds.service.impl(async function () {
@@ -201,7 +294,7 @@ module.exports = cds.service.impl(async function () {
             }
         });
     });
-
+*/
 
 /*
 //annapurna code

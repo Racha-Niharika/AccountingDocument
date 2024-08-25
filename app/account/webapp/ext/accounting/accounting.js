@@ -4,8 +4,9 @@ sap.ui.define([
     "sap/m/Dialog",
     "sap/m/Button",
     "sap/m/Text",
-    "sap/m/VBox"
-], function (MessageToast, ODataModel, Dialog, Button, Text, VBox) {
+    "sap/m/VBox",
+    "sap/ui/core/BusyIndicator" // Import BusyIndicator
+], function (MessageToast, ODataModel, Dialog, Button, Text, VBox, BusyIndicator) {
     'use strict';
 
     return {
@@ -18,11 +19,11 @@ sap.ui.define([
                     contentHeight: "300px",
                     content: new VBox({
                         items: [
-                            new Text({ text: "Total records: 0", id: "totalRecordsText" }),
+                            new Text({ text: "Total records: 13126", id: "totalRecordsText" }), // Static total record count
                             new Text({ text: "Fetched records: 0", id: "fetchedCountText" }),
                             new Text({ text: "Number of batches: 0", id: "batchCountText" }),
-                            new Text({ text: "Total batches: 0", id: "totalBatchesText" }),
-                            new Text({ text: "Remaining batches: 0", id: "remainingBatchesText" })
+                            new Text({ text: "Inserted batches: 0", id: "insertedBatchCountText" }),
+                            new Text({ text: "Records inserted: 0", id: "insertedRecordsText" })
                         ]
                     }),
                     beginButton: new Button({
@@ -37,7 +38,7 @@ sap.ui.define([
             }
 
             this._oProgressDialog.open();
-            MessageToast.show("Fetching data...");
+            BusyIndicator.show(); // Show busy indicator
 
             try {
                 const oModel = new ODataModel({
@@ -79,8 +80,10 @@ sap.ui.define([
                 const batchSize = 2000;
                 let iTotalFetched = 0;
                 let iBatchCount = 0;
-                let iTotalBatches;
+                let iInsertedBatchCount = 0;
+                let iInsertedRecords = 0;
 
+                // Fetch data in batches
                 while (true) {
                     const batchResults = await fetchDataInBatches(oModel, taxDocQuery, batchSize);
                     if (batchResults.length === 0) break;
@@ -93,19 +96,22 @@ sap.ui.define([
                     // Update dialog text
                     sap.ui.getCore().byId("fetchedCountText").setText("Fetched records: " + iTotalFetched);
                     sap.ui.getCore().byId("batchCountText").setText("Number of batches: " + iBatchCount);
-
-                    const remainingBatches = iTotalBatches - iBatchCount;
-                    sap.ui.getCore().byId("remainingBatchesText").setText("Remaining batches: " + remainingBatches);
                 }
 
-                await insertRecordsInBatches(taxDocItems);
+                // Insert records in batches
+                await insertRecordsInBatches(taxDocItems, function (batchSize, batchCount, recordsInserted) {
+                    iInsertedBatchCount = batchCount;
+                    iInsertedRecords = recordsInserted;
+                    sap.ui.getCore().byId("insertedBatchCountText").setText("Inserted batches: " + iInsertedBatchCount);
+                    sap.ui.getCore().byId("insertedRecordsText").setText("Records inserted: " + iInsertedRecords);
+                });
 
                 MessageToast.show('Data fetch and insertion completed successfully.');
             } catch (error) {
                 console.error('Error during data fetch:', error);
                 MessageToast.show('An error occurred while fetching data.');
             } finally {
-                BusyIndicator.hide();
+                BusyIndicator.hide(); // Hide busy indicator
                 this._oProgressDialog.close();
             }
         }
@@ -117,7 +123,8 @@ sap.ui.define([
                 urlParameters: {
                     $skip: queryParams.$skip,
                     $top: batchSize,
-                    $filter: queryParams.$filter
+                    $filter: queryParams.$filter,
+                    $select: "CompanyCode,FiscalYear,FiscalPeriod,AccountingDocument,LastChangeDate,AccountingDocumentType" // Specify the fields to select
                 },
                 success: function (data) {
                     if (data && data.results) {
@@ -133,36 +140,65 @@ sap.ui.define([
         });
     }
 
-    async function insertRecordsInBatches(newRecords, batchSize = 2000) {
-        if (newRecords.length === 0) {
+    function removeMetadata(obj) {
+        if (obj && typeof obj === 'object') {
+            delete obj.__metadata;
+            for (const key in obj) {
+                if (obj.hasOwnProperty(key) && typeof obj[key] === 'object') {
+                    removeMetadata(obj[key]);
+                }
+            }
+        }
+    }
+    
+    async function insertRecordsInBatches(newRecords, updateProgressCallback, batchSize = 5000) {
+        if (!Array.isArray(newRecords) || newRecords.length === 0) {
             console.log('No new records to insert.');
             return;
         }
-
+    
+        let totalRecordsInserted = 0;
+        let totalBatchesInserted = 0;
+    
         for (let i = 0; i < newRecords.length; i += batchSize) {
             const batch = newRecords.slice(i, i + batchSize);
-            console.log(`Processing batch of ${batch.length} records.`);
-
-            try {
-                const response = await fetch('http://localhost:3000/insert-records', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ records: batch })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Server response was not ok. Status: ${response.status} - ${response.statusText}`);
+    
+            batch.forEach(record => removeMetadata(record));
+    
+            if (batch.length > 0) {
+                try {
+                    const response = await fetch('/odata/v4/accountsrv/insertRecords', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ records: batch })
+                    });
+    
+                    if (!response.ok) {
+                        throw new Error(`Server response was not ok. Status: ${response.status} - ${response.statusText}`);
+                    }
+    
+                    totalRecordsInserted += batch.length;
+                    totalBatchesInserted++;
+                    console.log('Batch inserted successfully:', batch.length);
+    
+                    if (updateProgressCallback) {
+                        updateProgressCallback(batchSize, totalBatchesInserted, totalRecordsInserted);
+                    }
+                } catch (error) {
+                    console.error('Error inserting batch:', error);
                 }
-
-                console.log('Batch inserted successfully:', batch.length);
-            } catch (error) {
-                console.error('Error inserting batch:', error);
+            } else {
+                console.log('Batch was empty. Skipping.');
             }
         }
     }
 });
+
+
+
+
 
 
 /*
