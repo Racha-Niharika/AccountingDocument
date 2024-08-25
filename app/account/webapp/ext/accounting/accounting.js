@@ -9,13 +9,116 @@ sap.ui.define([
 ], function (MessageToast, ODataModel, Dialog, Button, Text, VBox, BusyIndicator) {
     'use strict';
 
+    // Helper function to fetch data with retry logic
+    async function fetchWithRetry(url, options, retries = 3) {
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                const response = await fetch(url, options);
+                if (response.ok) {
+                    return response;
+                } else {
+                    throw new Error(`Network response was not ok. Status: ${response.status} - ${response.statusText}`);
+                }
+            } catch (error) {
+                if (attempt === retries) {
+                    throw error; // Throw the error if this was the last attempt
+                }
+                console.log(`Attempt ${attempt} failed, retrying...`);
+                await new Promise(res => setTimeout(res, 1000)); // Wait before retrying
+            }
+        }
+    }
+
+    // Function to fetch data in batches
+    async function fetchDataInBatches(oModel, queryParams, batchSize) {
+        return new Promise((resolve, reject) => {
+            oModel.read("/A_OperationalAcctgDocItemCube", {
+                urlParameters: {
+                    $skip: queryParams.$skip,
+                    $top: batchSize,
+                    $filter: queryParams.$filter,
+                    $select: "CompanyCode,FiscalYear,FiscalPeriod,AccountingDocument,LastChangeDate,AccountingDocumentType"
+                },
+                success: function (data) {
+                    console.log('Data fetched successfully:', data);
+                    if (data && data.results) {
+                        resolve(data.results);
+                    } else {
+                        resolve([]);
+                    }
+                },
+                error: function (error) {
+                    console.error('Error fetching data:', error);
+                    reject(error);
+                }
+            });
+        });
+    }
+
+    // Function to remove metadata from records
+    function removeMetadata(obj) {
+        if (obj && typeof obj === 'object') {
+            delete obj.__metadata;
+            for (const key in obj) {
+                if (obj.hasOwnProperty(key) && typeof obj[key] === 'object') {
+                    removeMetadata(obj[key]);
+                }
+            }
+        }
+    }
+
+    // Function to insert records in batches
+    async function insertRecordsInBatches(newRecords, updateProgressCallback, batchSize = 2000) {
+        if (!Array.isArray(newRecords) || newRecords.length === 0) {
+            console.log('No new records to insert.');
+            return;
+        }
+
+        let totalRecordsInserted = 0;
+        let totalBatchesInserted = 0;
+
+        for (let i = 0; i < newRecords.length; i += batchSize) {
+            const batch = newRecords.slice(i, i + batchSize);
+
+            batch.forEach(record => removeMetadata(record));
+
+            if (batch.length > 0) {
+                try {
+                    const response = await fetch('/odata/v4/accountsrv/insertRecords', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ records: batch })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Server response was not ok. Status: ${response.status} - ${response.statusText}`);
+                    }
+
+                    totalRecordsInserted += batch.length;
+                    totalBatchesInserted++;
+                    console.log('Batch inserted successfully:', batch.length);
+
+                    if (updateProgressCallback) {
+                        updateProgressCallback(batchSize, totalBatchesInserted, totalRecordsInserted);
+                    }
+                } catch (error) {
+                    console.error('Error inserting batch:', error);
+                }
+            } else {
+                console.log('Batch was empty. Skipping.');
+            }
+        }
+    }
+
     return {
         accounting: async function (oEvent) {
             // Create a dialog to display progress
             if (!this._oProgressDialog) {
                 this._oProgressDialog = new Dialog({
                     title: "Data Fetching Progress",
-                    contentWidth: "400px",
+                    contentWidth: "200px",
                     contentHeight: "300px",
                     content: new VBox({
                         items: [
@@ -50,38 +153,24 @@ sap.ui.define([
                     autoExpandSelect: true
                 });
 
-                let lastSyncDate;
                 const metadataUrl = "https://my401292-api.s4hana.cloud.sap/sap/opu/odata/sap/API_OPLACCTGDOCITEMCUBE_SRV/$metadata";
 
-                const response = await fetch(metadataUrl, {
+                await fetchWithRetry(metadataUrl, {
                     method: 'GET',
                     headers: {
                         'Authorization': 'Basic ' + btoa("USER_NNRG:FMesUvVB}JhYD9nVbDfRoVcdEffwmVNJJScMzuzx")
                     }
                 });
 
-                if (!response.ok) {
-                    throw new Error(`Network response was not ok. Status: ${response.status} - ${response.statusText}`);
-                }
-
-                const metadata = await response.text();
-                console.log("Metadata fetched successfully:", metadata);
-
                 let taxDocQuery = {
                     $filter: "",
                     $skip: 0
                 };
 
-                if (lastSyncDate) {
-                    taxDocQuery.$filter = `LastChangeDate gt datetimeoffset'${lastSyncDate}'`;
-                }
-
                 const taxDocItems = [];
                 const batchSize = 2000;
                 let iTotalFetched = 0;
                 let iBatchCount = 0;
-                let iInsertedBatchCount = 0;
-                let iInsertedRecords = 0;
 
                 // Fetch data in batches
                 while (true) {
@@ -100,10 +189,8 @@ sap.ui.define([
 
                 // Insert records in batches
                 await insertRecordsInBatches(taxDocItems, function (batchSize, batchCount, recordsInserted) {
-                    iInsertedBatchCount = batchCount;
-                    iInsertedRecords = recordsInserted;
-                    sap.ui.getCore().byId("insertedBatchCountText").setText("Inserted batches: " + iInsertedBatchCount);
-                    sap.ui.getCore().byId("insertedRecordsText").setText("Records inserted: " + iInsertedRecords);
+                    sap.ui.getCore().byId("insertedBatchCountText").setText("Inserted batches: " + batchCount);
+                    sap.ui.getCore().byId("insertedRecordsText").setText("Records inserted: " + recordsInserted);
                 });
 
                 MessageToast.show('Data fetch and insertion completed successfully.');
@@ -116,85 +203,8 @@ sap.ui.define([
             }
         }
     };
-
-    async function fetchDataInBatches(oModel, queryParams, batchSize) {
-        return new Promise((resolve, reject) => {
-            oModel.read("/A_OperationalAcctgDocItemCube", {
-                urlParameters: {
-                    $skip: queryParams.$skip,
-                    $top: batchSize,
-                    $filter: queryParams.$filter,
-                    $select: "CompanyCode,FiscalYear,FiscalPeriod,AccountingDocument,LastChangeDate,AccountingDocumentType" // Specify the fields to select
-                },
-                success: function (data) {
-                    if (data && data.results) {
-                        resolve(data.results);
-                    } else {
-                        resolve([]); // Handle unexpected structure
-                    }
-                },
-                error: function (error) {
-                    reject(error);
-                }
-            });
-        });
-    }
-
-    function removeMetadata(obj) {
-        if (obj && typeof obj === 'object') {
-            delete obj.__metadata;
-            for (const key in obj) {
-                if (obj.hasOwnProperty(key) && typeof obj[key] === 'object') {
-                    removeMetadata(obj[key]);
-                }
-            }
-        }
-    }
-    
-    async function insertRecordsInBatches(newRecords, updateProgressCallback, batchSize = 5000) {
-        if (!Array.isArray(newRecords) || newRecords.length === 0) {
-            console.log('No new records to insert.');
-            return;
-        }
-    
-        let totalRecordsInserted = 0;
-        let totalBatchesInserted = 0;
-    
-        for (let i = 0; i < newRecords.length; i += batchSize) {
-            const batch = newRecords.slice(i, i + batchSize);
-    
-            batch.forEach(record => removeMetadata(record));
-    
-            if (batch.length > 0) {
-                try {
-                    const response = await fetch('/odata/v4/accountsrv/insertRecords', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ records: batch })
-                    });
-    
-                    if (!response.ok) {
-                        throw new Error(`Server response was not ok. Status: ${response.status} - ${response.statusText}`);
-                    }
-    
-                    totalRecordsInserted += batch.length;
-                    totalBatchesInserted++;
-                    console.log('Batch inserted successfully:', batch.length);
-    
-                    if (updateProgressCallback) {
-                        updateProgressCallback(batchSize, totalBatchesInserted, totalRecordsInserted);
-                    }
-                } catch (error) {
-                    console.error('Error inserting batch:', error);
-                }
-            } else {
-                console.log('Batch was empty. Skipping.');
-            }
-        }
-    }
 });
+
 
 
 
