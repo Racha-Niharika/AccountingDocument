@@ -17,10 +17,9 @@ entity Accounts as projection on accountapi.A_OperationalAcctgDocItemCube{
         CompanyCodeCurrency,
          LastChangeDate
   }
-   entity Accounting as projection on db.Accounting actions{
-            action loaddata() returns Boolean;
-    };
-   //action ListReporter() returns String;
+   entity Accounting as projection on db.Accounting;
+   action insertBatchData(data: array of accountsrv.Accounting);
+   action accounting() returns String;
 }
 //annotate accountsrv.Accounting @odata.draft.enabled;
 annotate accountsrv.Items @odata.draft.enabled;
