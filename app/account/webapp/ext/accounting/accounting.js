@@ -1,3 +1,233 @@
+/*sap.ui.define([
+    "sap/m/MessageBox",
+    "sap/ui/core/library",
+    "sap/ui/core/BusyIndicator",
+    "sap/m/MessageToast",
+    "sap/m/Dialog",
+    "sap/m/Button",
+    "sap/m/Text"
+], function (MessageBox, coreLibrary, BusyIndicator, MessageToast, Dialog, Button, Text) {
+    "use strict";
+
+    return {
+       accounting: async function (oBindingContext, aSelectedContexts) {
+            try {
+                // Attempt to fetch the total record count from the API
+                const countResponse = await $.ajax({
+                    url: "http://localhost:4004/odata/v4/accountsrv/Accounts/$count", // Adjust the API endpoint as needed
+                    method: "GET",
+                    dataType: "text" // Expect plain text for count
+                });
+
+                // Convert the count response to a number
+                var totalRecords = parseInt(countResponse, 10);
+                if (isNaN(totalRecords) || totalRecords <= 0) {
+                    MessageBox.error("Failed to fetch the total record count or count is 0.");
+                    return;
+                }
+
+                var batchSize = 2000; // Define batch size
+                var totalBatches = Math.ceil(totalRecords / batchSize);
+                var chunkSize = 1000; // Define chunk size for updating progress
+
+                function updateProgressDialog(currentRecord, totalRecords, oDialog) {
+                    oDialog.getContent()[0].setText("Processing record " + currentRecord + " /" + totalRecords + "...");
+                }
+
+                function processChunk(batchNumber, start, end, totalRecords, chunkStart, oDialog) {
+                    var chunkEnd = Math.min(chunkStart + chunkSize - 1, end);
+
+                    updateProgressDialog(chunkStart, totalRecords, oDialog);
+
+                    $.ajax({
+                        url: "/odata/v4/accountsrv/accounting",
+                        type: "POST",
+                        contentType: "application/json",
+                        data: JSON.stringify({
+                            context: oBindingContext,
+                            selectedContexts: aSelectedContexts,
+                            batchStart: chunkStart,
+                            batchEnd: chunkEnd
+                        }),
+                        success: function (result) {
+                            console.log("Processed chunk starting at " + chunkStart + " successfully.", result);
+
+                            if (chunkEnd < end) {
+                                // Continue processing the next chunk
+                                processChunk(batchNumber, start, end, totalRecords, chunkEnd + 1, oDialog);
+                            } else {
+                                // Finish processing the current batch
+                                if (batchNumber < totalBatches) {
+                                    MessageBox.confirm("Batch " + batchNumber + " completed. Do you want to process the next batch?", {
+                                        actions: [MessageBox.Action.YES, MessageBox.Action.NO],
+                                        onClose: function (sAction) {
+                                            if (sAction === MessageBox.Action.YES) {
+                                                processBatch(batchNumber + 1, end + 1, Math.min(end + batchSize, totalRecords), totalBatches, totalRecords, oDialog);
+                                            } else {
+                                                oDialog.close();
+                                                BusyIndicator.hide();
+                                            }
+                                        }
+                                    });
+                                } else {
+                                    // All batches processed
+                                    oDialog.close();
+                                    new Dialog({
+                                        title: "Success",
+                                        type: "Message",
+                                        state: "Success",
+                                        content: new Text({ text: "All batches processed successfully." }),
+                                        beginButton: new Button({
+                                            text: "OK",
+                                            press: function () {
+                                                this.getParent().close();
+                                            }
+                                        }),
+                                        afterClose: function () {
+                                            this.destroy();
+                                        }
+                                    }).open();
+                                    BusyIndicator.hide();
+                                }
+                            }
+                        },
+                        error: function (xhr, status, error) {
+                            console.error("Error processing chunk starting at " + chunkStart + ":", error);
+                            MessageBox.error("Failed to process chunk starting at " + chunkStart + ". Status: " + xhr.status + ", Error: " + xhr.responseText);
+                            oDialog.close();
+                            BusyIndicator.hide();
+                        }
+                    });
+                }
+
+                function processBatch(batchNumber, start, end, totalBatches, totalRecords, oDialog) {
+                    updateProgressDialog(start, totalRecords, oDialog);
+
+                    // Process chunks within the batch
+                    processChunk(batchNumber, start, end, totalRecords, start, oDialog);
+                }
+
+                MessageBox.confirm("Do you want to start fetching data?", {
+                    actions: [MessageBox.Action.YES, MessageBox.Action.NO],
+                    onClose: function (sAction) {
+                        if (sAction === MessageBox.Action.YES) {
+                            BusyIndicator.show(0);
+                            var oDialog = new Dialog({
+                                title: "Batch Processing Progress",
+                                type: "Message",
+                                content: new Text({ text: "Initializing..." }),
+                                beginButton: new Button({
+                                    text: "Cancel",
+                                    press: function () {
+                                        oDialog.close();
+                                        BusyIndicator.hide();
+                                    }
+                                }),
+                                afterClose: function () {
+                                    oDialog.destroy(); // Clean up the dialog
+                                }
+                            });
+                            oDialog.open();
+
+                            processBatch(1, 1, Math.min(batchSize, totalRecords), Math.ceil(totalRecords / batchSize), totalRecords, oDialog);
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error("Error fetching initial record count:", error);
+                MessageBox.error("Error fetching initial record count: " + (error.message || "Unknown error"));
+            }
+        }
+    };
+});
+*/
+
+sap.ui.define([
+    "sap/m/MessageBox",
+    "sap/m/Dialog",
+    "sap/m/Text",
+    "sap/m/Button"
+], function (MessageBox, Dialog, Text, Button) {
+    "use strict";
+    return {
+        accounting: function (oBindingContext, aSelectedContexts) {
+            var messageTimeout;
+
+            var oStatusText = new Text({ text: "Starting to fetch documents..." });
+
+            var oDialog = new Dialog({
+                title: "Fetching Details",
+                content: [oStatusText],
+                beginButton: new Button({
+                    text: "Cancel",
+                    press: function () {
+                        oDialog.close();
+                        clearTimeout(messageTimeout);
+                    }
+                })
+            });
+
+            oDialog.open();
+
+            function updateStatus(message, closeDialog = false) {
+                oStatusText.setText(message);
+                if (messageTimeout) clearTimeout(messageTimeout);
+
+                if (closeDialog) {
+                    oDialog.close();
+                    MessageBox.success("Fetching Successfully");
+                } else {
+                    messageTimeout = setTimeout(() => oStatusText.setText(""), 10000);
+                }
+            }
+
+            function handleStatusResponse(statusResponse) {
+                if (statusResponse && typeof statusResponse === 'object' && statusResponse.value) {
+                    const messages = statusResponse.value.messages || [];
+                    const totalRecords = statusResponse.value.totalRecords || 0; // Assuming `totalRecords` is part of the response
+                    updateStatus(`Total Records: ${totalRecords}`);
+
+                    messages.forEach((msg, i) => {
+                        setTimeout(() => {
+                            if (msg === "Fetching completed successfully") {
+                                updateStatus(msg, true);
+                            } else {
+                                updateStatus(msg);
+                            }
+                        }, i * 5000);
+                    });
+                } else {
+                    updateStatus("Unexpected status response format.", true);
+                }
+            }
+
+            $.ajax({
+                url: "/odata/v4/accountsrv/ListReporter",
+                type: "POST",
+                contentType: "application/json",
+                success: function () {
+                    // Poll only once after 5 seconds
+                    setTimeout(() => {
+                        $.ajax({
+                            url: "/odata/v4/accountsrv/GSTFetchStatus",
+                            type: "POST",
+                            contentType: "application/json",
+                            success: handleStatusResponse,
+                            error: function () {
+                                updateStatus("Error during polling.", true);
+                            }
+                        });
+                    }, 5000);
+                },
+                error: function () {
+                    updateStatus("Error starting the fetch operation.", true);
+                }
+            });
+        }
+    };
+});
+
+/*
 sap.ui.define([
     "sap/m/MessageToast",
     "sap/ui/model/odata/v2/ODataModel",
